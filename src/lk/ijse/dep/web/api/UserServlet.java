@@ -149,6 +149,33 @@ public class UserServlet extends HttpServlet {
 
     @Override
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doDelete(req, resp);
+        String id = req.getParameter("user_id");
+        if (id == null || !id.matches("U\\d{3}")){
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
+        BasicDataSource cp = (BasicDataSource) getServletContext().getAttribute("cp");
+        try (Connection connection = cp.getConnection()){
+            PreparedStatement pstm = connection.prepareStatement("SELECT  * FROM User WHERE user_id=?");
+            pstm.setObject(1, id);
+            if(pstm.executeQuery().next()) {
+                pstm = connection.prepareStatement("DELETE FROM User WHERE user_id=?");
+                pstm.setObject(1, id);
+                boolean success = pstm.executeUpdate() > 0;
+                if (success) {
+                    resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+                } else {
+                    resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                }
+            }else {
+                resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            }
+        } catch (SQLIntegrityConstraintViolationException ex){
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        } catch (SQLException throwables) {
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            throwables.printStackTrace();
+        }
     }
 }
